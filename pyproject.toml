@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llm-chat-cli"
+version = "0.1.0"
+description = "Command-line tool for chatting with LLMs (Anthropic and OpenAI) using only the official SDKs."
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic",
+    "openai",
+    "pydantic",
+    "python-dotenv",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+
+[project.scripts]
+llm-chat-cli = "llm_chat_cli.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
