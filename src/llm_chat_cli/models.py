@@ -14,3 +14,11 @@ class Message(BaseModel):
 
     role: Literal["user", "assistant"]
     content: str
+
+
+class Summary(BaseModel):
+    """Example structured output: what the model must return for /summary."""
+
+    title: str
+    key_points: list[str]
+    sentiment: Literal["positive", "neutral", "negative"]

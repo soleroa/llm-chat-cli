@@ -35,7 +35,7 @@ def create_provider(name: str) -> Provider:
         # Groq speaks the OpenAI protocol, so we reuse OpenAIProvider with its own URL.
         return OpenAIProvider(
             api_key=_require_env("GROQ_API_KEY"),
-            model=os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile"),
+            model=os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b"),
             base_url=os.environ.get("GROQ_BASE_URL", "https://api.groq.com/openai/v1"),
         )
     raise ValueError(f"Unknown provider '{name}'. Choose from: {', '.join(SUPPORTED_PROVIDERS)}")

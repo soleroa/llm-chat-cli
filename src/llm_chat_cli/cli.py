@@ -6,9 +6,11 @@ import argparse
 
 from dotenv import load_dotenv
 
-from llm_chat_cli.models import Message
+from llm_chat_cli.models import Message, Summary
 from llm_chat_cli.prompts import DEFAULT_SYSTEM_PROMPT
 from llm_chat_cli.providers import SUPPORTED_PROVIDERS, create_provider
+from llm_chat_cli.providers.base import Provider
+from llm_chat_cli.structured import ask_structured
 
 EXIT_COMMANDS = {"exit", "quit", "/exit", "/quit"}
 
@@ -22,6 +24,19 @@ def parse_args() -> argparse.Namespace:
         help="which provider to talk to (default: anthropic)",
     )
     return parser.parse_args()
+
+
+def run_summary(provider: Provider, text: str) -> None:
+    """Handle `/summary <text>`: print a validated Summary, outside the chat history."""
+    if not text:
+        print("Usage: /summary <text to summarize>\n")
+        return
+    try:
+        summary = ask_structured(provider, Summary, f"Summarize this text:\n{text}")
+    except Exception as e:
+        print(f"[error] {e}\n")
+        return
+    print(summary.model_dump_json(indent=2), "\n")
 
 
 def main() -> None:
@@ -47,6 +62,9 @@ def main() -> None:
             continue
         if user_input.lower() in EXIT_COMMANDS:
             break
+        if user_input.startswith("/summary"):
+            run_summary(provider, user_input.removeprefix("/summary").strip())
+            continue
 
         history.append(Message(role="user", content=user_input))
 
