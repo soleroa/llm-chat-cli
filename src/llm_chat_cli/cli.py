@@ -6,7 +6,7 @@ import argparse
 
 from dotenv import load_dotenv
 
-from llm_chat_cli.models import Message, Summary
+from llm_chat_cli.models import Message, Summary, trim_history
 from llm_chat_cli.prompts import DEFAULT_SYSTEM_PROMPT
 from llm_chat_cli.providers import SUPPORTED_PROVIDERS, create_provider
 from llm_chat_cli.providers.base import Provider
@@ -22,6 +22,12 @@ def parse_args() -> argparse.Namespace:
         choices=SUPPORTED_PROVIDERS,
         default="anthropic",
         help="which provider to talk to (default: anthropic)",
+    )
+    parser.add_argument(
+        "--max-history",
+        type=int,
+        default=20,
+        help="max messages kept in memory; older ones are dropped (default: 20)",
     )
     return parser.parse_args()
 
@@ -67,6 +73,7 @@ def main() -> None:
             continue
 
         history.append(Message(role="user", content=user_input))
+        trim_history(history, args.max_history)
 
         print("bot> ", end="", flush=True)
         reply = ""

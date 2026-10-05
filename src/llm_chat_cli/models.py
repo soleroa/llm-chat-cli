@@ -16,6 +16,17 @@ class Message(BaseModel):
     content: str
 
 
+def trim_history(history: list[Message], max_messages: int) -> None:
+    """Sliding window: drop the oldest messages in place so at most `max_messages` remain.
+
+    Never leaves an "assistant" message first, since Anthropic requires the
+    conversation to start with a "user" message.
+    """
+    del history[: max(0, len(history) - max_messages)]
+    while history and history[0].role != "user":
+        history.pop(0)
+
+
 class Summary(BaseModel):
     """Example structured output: what the model must return for /summary."""
 
