@@ -10,7 +10,8 @@ from llm_chat_cli.providers.base import Provider
 
 class AnthropicProvider(Provider):
     def __init__(self, api_key: str, model: str, max_tokens: int = 1024) -> None:
-        self.client = Anthropic(api_key=api_key)
+        # The SDK retries connection errors, 429 and 5xx with exponential backoff.
+        self.client = Anthropic(api_key=api_key, timeout=30.0, max_retries=3)
         self.model = model
         # Anthropic requires max_tokens on every request (OpenAI makes it optional).
         self.max_tokens = max_tokens

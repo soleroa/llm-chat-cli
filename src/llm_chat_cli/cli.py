@@ -10,6 +10,7 @@ from llm_chat_cli.models import Message, Summary, trim_history
 from llm_chat_cli.prompts import DEFAULT_SYSTEM_PROMPT
 from llm_chat_cli.providers import SUPPORTED_PROVIDERS, create_provider
 from llm_chat_cli.providers.base import Provider
+from llm_chat_cli.providers.errors import describe_error
 from llm_chat_cli.structured import ask_structured
 
 EXIT_COMMANDS = {"exit", "quit", "/exit", "/quit"}
@@ -40,7 +41,7 @@ def run_summary(provider: Provider, text: str) -> None:
     try:
         summary = ask_structured(provider, Summary, f"Summarize this text:\n{text}")
     except Exception as e:
-        print(f"[error] {e}\n")
+        print(f"[error] {describe_error(e)}\n")
         return
     print(summary.model_dump_json(indent=2), "\n")
 
@@ -84,7 +85,7 @@ def main() -> None:
         except Exception as e:
             # Drop the unanswered user message so the history keeps alternating roles.
             history.pop()
-            print(f"\n[error] {e}\n")
+            print(f"\n[error] {describe_error(e)}\n")
             continue
         print("\n")
 
