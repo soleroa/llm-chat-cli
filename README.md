@@ -1,64 +1,64 @@
 # llm-chat-cli
 
-Herramienta de línea de comandos para chatear con LLMs (Anthropic, OpenAI y Groq) usando únicamente los SDKs oficiales, sin frameworks como LangChain.
+A command-line tool for chatting with LLMs (Anthropic, OpenAI and Groq) using only the official SDKs, with no frameworks such as LangChain.
 
-## Descripción
+## Description
 
-Un chat en la terminal que:
+A terminal chat that:
 
-- mantiene una **conversación multi-turno** (el historial se maneja a mano, con una ventana deslizante para no pasarse del contexto),
-- muestra la respuesta con **streaming**, token por token,
-- cambia de proveedor con un flag: `--model anthropic|openai|groq`,
-- devuelve **salidas estructuradas validadas con Pydantic** (comando `/summary`), reintentando si el modelo responde un JSON inválido,
-- muestra mensajes de error claros (clave inválida, rate limit, sin conexión) y reintenta con backoff exponencial.
+- keeps a **multi-turn conversation** (the history is managed by hand, with a sliding window so it never outgrows the context),
+- shows the reply with **streaming**, token by token,
+- switches provider with a flag: `--model anthropic|openai|groq`,
+- returns **structured output validated with Pydantic** (the `/summary` command), retrying when the model answers with invalid JSON,
+- shows clear error messages (invalid key, rate limit, no connection) and retries with exponential backoff.
 
-**Stack:** Python 3.11+, SDKs oficiales de `anthropic` y `openai`, `pydantic`, `python-dotenv`, `pytest`.
+**Stack:** Python 3.11+, the official `anthropic` and `openai` SDKs, `pydantic`, `python-dotenv`, `pytest`.
 
-## Instalación
+## Installation
 
 ```bash
-git clone <url-del-repo>
+git clone https://github.com/soleroa/llm-chat-cli.git
 cd llm-chat-cli
 
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 
-cp .env.example .env   # y completá al menos una API key
+cp .env.example .env   # then fill in at least one API key
 ```
 
-Variables de `.env`:
+Variables in `.env`:
 
-| Variable | Para qué |
+| Variable | Purpose |
 |---|---|
-| `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GROQ_API_KEY` | credenciales (solo hace falta la del proveedor que uses) |
-| `ANTHROPIC_MODEL`, `OPENAI_MODEL`, `GROQ_MODEL` | modelo a usar en cada proveedor |
-| `GROQ_BASE_URL` | endpoint de Groq (compatible con OpenAI) |
+| `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GROQ_API_KEY` | credentials (you only need the one for the provider you use) |
+| `ANTHROPIC_MODEL`, `OPENAI_MODEL`, `GROQ_MODEL` | model to use with each provider |
+| `GROQ_BASE_URL` | Groq endpoint (OpenAI-compatible) |
 
-> Los nombres de modelos cambian seguido. Si ves "Model not found", revisá el `*_MODEL` de tu `.env`.
+> Model names change often. If you see "Model not found", check the `*_MODEL` value in your `.env`.
 
-## Uso
+## Usage
 
 ```bash
 llm-chat-cli --model groq
 llm-chat-cli --model openai --max-history 10
 ```
 
-| Flag | Descripción |
+| Flag | Description |
 |---|---|
-| `--model` | `anthropic` (por defecto), `openai` o `groq` |
-| `--max-history` | máximo de mensajes que se recuerdan; los más viejos se descartan (por defecto 20) |
+| `--model` | `anthropic` (default), `openai` or `groq` |
+| `--max-history` | maximum number of messages remembered; older ones are dropped (default: 20) |
 
-Comandos dentro del chat:
+Commands inside the chat:
 
-| Comando | Qué hace |
+| Command | What it does |
 |---|---|
-| `/summary <texto>` | resume el texto como JSON validado con Pydantic (título, puntos clave, sentimiento) |
-| `exit`, `quit`, Ctrl+C | salir |
+| `/summary <text>` | summarizes the text as JSON validated with Pydantic (title, key points, sentiment) |
+| `exit`, `quit`, Ctrl+C | quit |
 
 ### Demo
 
-Sesión real con Groq:
+A real session with Groq:
 
 ```text
 you> Me llamo Sole y estoy aprendiendo a programar con LLMs.
@@ -79,54 +79,56 @@ you> /summary El nuevo restaurante del barrio tiene platos ricos y precios justo
 }
 ```
 
+The second answer shows the conversation memory at work, and `/summary` shows the validated structured output. The assistant replies in the language you write in.
+
 ### Tests
 
 ```bash
 pytest
 ```
 
-Los tests no usan red ni claves: emplean un proveedor falso y excepciones construidas a mano.
+The tests need no network access or API keys: they use a fake provider and hand-built exceptions.
 
-## Arquitectura
+## Architecture
 
 ```
 src/llm_chat_cli/
-├── cli.py                  # argumentos, loop de chat, historial
+├── cli.py                  # arguments, chat loop, history
 ├── models.py               # Message, Summary, trim_history
 ├── prompts.py              # system prompts
-├── structured.py           # ask_structured: JSON + validación + reintento
+├── structured.py           # ask_structured: JSON + validation + retry
 └── providers/
-    ├── base.py             # interfaz Provider: stream(messages, system)
+    ├── base.py             # Provider interface: stream(messages, system)
     ├── anthropic_provider.py
-    ├── openai_provider.py  # sirve para OpenAI y Groq
-    ├── errors.py           # excepciones de los SDKs -> mensajes claros
-    └── __init__.py         # create_provider(name): la factory
+    ├── openai_provider.py  # serves both OpenAI and Groq
+    ├── errors.py           # SDK exceptions -> clear messages
+    └── __init__.py         # create_provider(name): the factory
 ```
 
-La idea central: `cli.py` no sabe con qué proveedor habla. Solo usa la interfaz `Provider.stream()`, que devuelve el texto en trozos a medida que llega, y cada proveedor traduce a su SDK. Para agregar uno nuevo alcanza con implementar esa interfaz y registrarlo en la factory.
+The core idea: `cli.py` does not know which provider it is talking to. It only uses the `Provider.stream()` interface, which yields the text in chunks as it arrives, and each provider translates that to its own SDK. Adding a new one only takes implementing that interface and registering it in the factory.
 
-Groq reutiliza el adaptador de OpenAI (`OpenAIProvider`), ya que su API es compatible con la de OpenAI: solo cambian la clave, el modelo y la `base_url`.
+Groq reuses the OpenAI adapter (`OpenAIProvider`), since its API is OpenAI-compatible: only the key, the model and the `base_url` change.
 
-La memoria es una lista de `Message` que se reenvía completa en cada turno, porque las APIs no guardan estado. `trim_history` la recorta como ventana deslizante y nunca deja un mensaje `assistant` al principio, ya que Anthropic exige que la conversación empiece con `user`.
+Memory is a list of `Message` objects that is resent in full on every turn, because the APIs keep no state. `trim_history` cuts it as a sliding window and never leaves an `assistant` message first, since Anthropic requires the conversation to start with `user`.
 
-## Diferencias entre proveedores
+## Differences between providers
 
 | | Anthropic | OpenAI | Groq |
 |---|---|---|---|
-| System prompt | parámetro `system` aparte | mensaje con `role: "system"` dentro de `messages` | igual que OpenAI |
-| `max_tokens` | obligatorio | opcional | opcional |
-| Streaming | `client.messages.stream()` + `text_stream` | `create(stream=True)` e iterar chunks | igual que OpenAI |
-| Texto de la respuesta | `response.content[0].text` | `response.choices[0].message.content` | igual que OpenAI |
-| Texto de cada chunk | ya viene como `str` | `chunk.choices[0].delta.content` (puede ser `None`) | igual que OpenAI |
-| Primer mensaje | debe ser `user` | sin esa restricción | igual que OpenAI |
-| Cliente en este proyecto | `AnthropicProvider` | `OpenAIProvider` | `OpenAIProvider` con otra `base_url` |
+| System prompt | separate `system` parameter | message with `role: "system"` inside `messages` | same as OpenAI |
+| `max_tokens` | required | optional | optional |
+| Streaming | `client.messages.stream()` + `text_stream` | `create(stream=True)` and iterate over chunks | same as OpenAI |
+| Response text | `response.content[0].text` | `response.choices[0].message.content` | same as OpenAI |
+| Text of each chunk | already a `str` | `chunk.choices[0].delta.content` (can be `None`) | same as OpenAI |
+| First message | must be `user` | no such restriction | same as OpenAI |
+| Client in this project | `AnthropicProvider` | `OpenAIProvider` | `OpenAIProvider` with a different `base_url` |
 
-## Estado
+## Status
 
-Probado con la API real de **Groq**. `AnthropicProvider` y el uso con OpenAI todavía no se probaron contra sus APIs reales (solo con tests y un proveedor falso).
+Tested against the real **Groq** API. `AnthropicProvider` and the OpenAI setup have not been tested against their real APIs yet (only through the test suite and a fake provider).
 
-## Posibles mejoras
+## Possible improvements
 
-- Recortar el historial por tokens o resumir lo viejo, en vez de contar mensajes.
-- Circuit breaker para no insistir cuando el servicio está caído.
-- Guardar y retomar conversaciones.
+- Trim the history by tokens, or summarize the old part, instead of counting messages.
+- A circuit breaker, to stop retrying when the service is down.
+- Save and resume conversations.
